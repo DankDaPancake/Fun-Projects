@@ -3,6 +3,7 @@ fi = open('temp.inp', 'r')
 import tkinter
 
 graph = []
+dupes = 0
 
 def main():
     window = tkinter.Tk()
@@ -30,6 +31,10 @@ def main():
     
     map_menu = tkinter.Frame(menu_frame)
     map_menu.pack(side = tkinter.LEFT)
+
+    tkinter.Button(map_menu, text="Duplicate", command=duplicate).pack(
+        side=tkinter.LEFT, padx = 5
+    )
     
     global canvas
     canvas = tkinter.Canvas(root_frame, bg = "#ffffff")
@@ -44,11 +49,14 @@ def main():
     status_frame = tkinter.Frame(root_frame)
     status_frame.pack(side = tkinter.BOTTOM, padx = 5, pady = 5, fill = "x")
     
-    global cursor_coor
-    cursor_coor = tkinter.StringVar()
-    cursor_coor.set("(0; 0)")
+    global cursor_coords_log
+    cursor_coords_log = tkinter.StringVar()
+    cursor_coords_log.set("(0; 0)")
+    tkinter.Label(
+        status_frame, textvariable=cursor_coords_log
+    ).pack(side=tkinter.RIGHT, padx = 5)
     
-    canvas.bind()
+    canvas.bind("<Motion>", on_mouse_move)
     
     draw_grid()
     update_canvas()
@@ -69,11 +77,30 @@ def update_canvas():
     ux, uy = None, None
     for _ in range(n): 
         vx, vy = map(int, fi.readline().split())
-        vx *= 20 
+        vx *= 20
         vy *= 20
+        graph.append((vx, vy))
+        canvas.create_oval(vx-3, vy-3, vx+3, vy+3, fill="#2563eb", outline="")
         if ux != None:
-            canvas.create_line(ux, uy, vx, vy, fill = "#2563eb", width = 2)
+            canvas.create_line(ux, uy, vx, vy, fill = "#2563eb", width = 2.5)
         ux, uy = vx, vy
+
+def duplicate():
+    dupes += 1
+    print(dupes)
+    n = graph.len()
+    for _ in range(n): 
+        vx, vy = map(int, fi.readline().split())
+        vx *= 20 + (dupes * 10)
+        vy *= 20 + (dupes * 9)
+        graph.append((vx, vy))
+        canvas.create_oval(vx-3, vy-3, vx+3, vy+3, fill="#2563eb", outline="")
+        if ux != None:
+            canvas.create_line(ux, uy, vx, vy, fill = "#2563eb", width = 2.5)
+        ux, uy = vx, vy
+    
+def on_mouse_move(event):
+    cursor_coords_log.set(f"({event.x:d}; {event.y:d})")
     
 if __name__ == "__main__":
     main()
