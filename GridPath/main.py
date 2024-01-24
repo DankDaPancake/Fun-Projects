@@ -1,9 +1,10 @@
 fi = open('temp.inp', 'r')
+fo = open('temp.out', 'w')
 
 import tkinter
+import math
 
-graph = []
-dupes = 0
+Base_Graph, Graph, Prev_Graph = [], [], []
 
 def main():
     window = tkinter.Tk()
@@ -35,6 +36,12 @@ def main():
     tkinter.Button(map_menu, text="Duplicate", command=duplicate).pack(
         side=tkinter.LEFT, padx = 5
     )
+    tkinter.Button(map_menu, text="Undo", command=undo).pack(
+        side=tkinter.LEFT, padx = 5
+    )
+    tkinter.Button(map_menu, text="Clear Map", command=mapclear).pack(
+        side=tkinter.LEFT, padx = 5
+    )
     
     global canvas
     canvas = tkinter.Canvas(root_frame, bg = "#ffffff")
@@ -58,6 +65,7 @@ def main():
     
     canvas.bind("<Motion>", on_mouse_move)
     
+    scan_graph()
     draw_grid()
     update_canvas()
     window.mainloop()
@@ -65,39 +73,55 @@ def main():
 def draw_grid():
     MAP_WIDTH = CAV_WIDTH // 20
     MAP_HEIGHT = CAV_HEIGHT // 20
-    print(CAV_WIDTH, CAV_HEIGHT)
     
     for i in range(MAP_WIDTH + 1):
-        canvas.create_line(i * 20, 0, i * 20, CAV_HEIGHT, fill = "#d4d4d4")   
+        canvas.create_line(i * 20, 0, i * 20, CAV_HEIGHT, fill = "#d4d4d4", tags = "grid")   
     for i in range(MAP_HEIGHT + 1):
-        canvas.create_line(0, i * 20, CAV_WIDTH, i * 20, fill = "#d4d4d4") 
+        canvas.create_line(0, i * 20, CAV_WIDTH, i * 20, fill = "#d4d4d4", tags = "grid") 
     
 def update_canvas():
-    n = int(fi.readline())
-    ux, uy = None, None
-    for _ in range(n): 
-        vx, vy = map(int, fi.readline().split())
-        vx *= 20
-        vy *= 20
-        graph.append((vx, vy))
-        canvas.create_oval(vx-3, vy-3, vx+3, vy+3, fill="#2563eb", outline="")
-        if ux != None:
-            canvas.create_line(ux, uy, vx, vy, fill = "#2563eb", width = 2.5)
-        ux, uy = vx, vy
-
+    canvas.delete("point", "line")
+    for [ux, uy, vx, vy] in Graph: 
+        fo.write(str(ux) + " " + str(uy) + " " + str(vx) + " " + str(vy) + "\n")
+        ux, uy = ux * 20, uy * 20
+        vx, vy = vx * 20, vy * 20
+        canvas.create_oval(ux-3, uy-3, ux+3, uy+3, fill="#ff4f00", outline="", tags = "point")
+        canvas.create_oval(vx-3, vy-3, vx+3, vy+3, fill="#ff4f00", outline="", tags = "point")
+        canvas.create_line(ux, uy, vx, vy, fill = "#2563eb", width = 2.5, tags = "line")
+    fo.write("\n")
+        
+def scan_graph():
+    for line in fi.read().split("\n"):
+        ux, uy, vx, vy = map(int, line.split(" "))
+        Base_Graph.append([ux, uy, vx, vy])
+              
 def duplicate():
-    dupes += 1
-    print(dupes)
-    n = graph.len()
-    for _ in range(n): 
-        vx, vy = map(int, fi.readline().split())
-        vx *= 20 + (dupes * 10)
-        vy *= 20 + (dupes * 9)
-        graph.append((vx, vy))
-        canvas.create_oval(vx-3, vy-3, vx+3, vy+3, fill="#2563eb", outline="")
-        if ux != None:
-            canvas.create_line(ux, uy, vx, vy, fill = "#2563eb", width = 2.5)
-        ux, uy = vx, vy
+    Prev_Graph = Graph[:]
+    dupes = len(Graph) // 25
+    if dupes > 0: 
+        del Graph[-7:-4]
+    for [ux, uy, vx, vy] in Base_Graph:
+        ux, uy = ux + dupes * 9, uy + dupes * 8
+        vx, vy = vx + dupes * 9, vy + dupes * 8
+        Graph.append([ux, uy, vx, vy])
+    if dupes > 0:
+        del Graph[-3:]
+        dx, dy = (dupes - 1) * 9, (dupes - 1) * 8
+        Graph.append([11 + dx, 7 + dy, 11 + dx, 15 + dy])
+        Graph.append([10 + dx, 8 + dy, 10 + dx, 16 + dy])
+        Graph.append([1, 1, 1, 1])
+    update_canvas()
+
+def undo():
+    if len(Graph) == 0: exit
+    temp = list(Graph)
+    Graph = list(Prev_Graph)
+    Prev_Graph = list(temp)
+    update_canvas()
+
+def mapclear():
+    canvas.delete("point", "line")
+    Graph.clear()
     
 def on_mouse_move(event):
     cursor_coords_log.set(f"({event.x:d}; {event.y:d})")
