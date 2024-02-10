@@ -1,10 +1,10 @@
 fi = open('temp.inp', 'r')
 
 import tkinter as Tk
-from geometry import intersect, in_polygon, euclidean_dist
-from queue import PriorityQueue as priorQ
+from geometry import in_polygon, intersect
+from graph import addEdge, createGraph, find_path
 
-Map, Graph = [], {}
+Map, Graph, Path = [], {}, []
 Vertices = []
 GRID_SZ = 25
 
@@ -41,7 +41,7 @@ def main():
     Tk.Button(map_menu1, text = "Clear Map", command = mapclear).pack(
         side = Tk.LEFT, padx = 10
     )
-    Tk.Button(map_menu1, text = "Show Graph", command = create_graph).pack(
+    Tk.Button(map_menu1, text = "Show Graph", command = MapToEdge).pack(
         side = Tk.LEFT, padx = 10
     )
     Tk.Button(map_menu2, text = "Pick Start", command = pin_start).pack(
@@ -51,6 +51,9 @@ def main():
         side = Tk.LEFT, padx = 10
     )
     Tk.Button(map_menu1, text = "Find Path", command = draw_path).pack(
+        side = Tk.LEFT, padx = 10
+    )
+    Tk.Button(map_menu1, text = "Reset", command = reset).pack(
         side = Tk.LEFT, padx = 10
     )
     
@@ -91,6 +94,17 @@ def main():
     scan_map()
     update_map()
     window.mainloop()
+
+def pin_start():
+    global start_pin
+    start_pin = True
+
+def pin_end():
+    global start_pin
+    if start_pin: 
+        exit
+    global end_pin
+    end_pin = True
     
 def draw_grid():
     MAP_WIDTH = CAV_WIDTH // GRID_SZ
@@ -105,17 +119,15 @@ def update_map():
     canvas.delete("point", "line")
     ux, uy = -1, -1
     for [vx, vy] in Map: 
-        #fo.write(str(ux) + " " + str(uy) + " " + str(vx) + " " + str(vy) + "\n")
         if ux == -1:
             ux, uy = vx, vy
             continue
         ux, uy = ux * GRID_SZ, uy * GRID_SZ
         vx, vy = vx * GRID_SZ, vy * GRID_SZ
+        canvas.create_line(ux, uy, vx, vy, fill = "#000000", width = GRID_SZ / 10, tags = "line")
         draw_point((ux, uy), "point")
         draw_point((vx, vy), "point")
-        canvas.create_line(ux, uy, vx, vy, fill = "#2563eb", width = GRID_SZ / 10, tags = "line")
         ux, uy = vx // GRID_SZ, vy // GRID_SZ
-    #fo.write("\n")
         
 def scan_map():
     for line in fi.read().split("\n"):
@@ -128,104 +140,9 @@ def mapclear():
     Map.clear()
     Graph.clear()
 
-def draw_graph():
-    canvas.delete("graph")
-    for u in Graph:
-        if u == -2: 
-            x1, y1 = start_coords
-        elif u == -1:
-            x1, y1 = end_coords
-        else:
-            x1, y1 = Map[u]
-        for v in Graph[u]:
-            if v < u: continue
-            if v == -2:
-                x2, y2 = start_coords
-            elif v == -1:
-                x2, y2 = end_coords
-            else:
-                x2, y2 = Map[v]
-            canvas.create_line(x1 * GRID_SZ, y1 * GRID_SZ, x2 * GRID_SZ, y2 * GRID_SZ, fill = "#000000", width = 1.2, tags = "graph")
-    
-def addEdge(u, v, p1, q1):
-    intersected = False
-    p2 = -1, -1
-    for q2 in Map:
-        if p2 == [-1, -1]:
-            p2 = q2
-            continue        
-        if intersect(p1, q1, p2, q2) or not in_polygon(Map, (p1[0] + q1[0]) / 2, (p1[1] + q1[1]) / 2):
-            intersected = True
-            break
-        p2 = q2    
-    if intersected: 
-        return
-    
-    distance = euclidean_dist(p1, q1)
-    if u not in Graph: 
-        Graph[u] = {}
-    Graph[u][v] = distance
-    if v not in Graph:
-        Graph[v] = {}
-    Graph[v][u] = distance
-
-def create_graph():
-    if len(Graph): 
-        exit
-    n = len(Map)
-    for i in range(n):
-        p1 = Map[i]
-        for j in range(i+1, n):
-            q1 = Map[j]
-            addEdge(i, j, p1, q1)
-    draw_graph()
-
-def pin_start():
-    global start_pin
-    start_pin = True
-
-def pin_end():
-    global start_pin
-    if start_pin: 
-        exit
-    global end_pin
-    end_pin = True
-
-def draw_point(vertice, tags):
-    canvas.delete("graph")
-    x, y = vertice
-    if tags == "point": canvas.create_oval(x-3, y-3, x+3, y+3, fill="#ff4f00", outline="", tags = "point")
-    if tags == "start_point": 
-        print(x, y)
-        canvas.delete("start_point")
-        canvas.delete("end_point")
-        canvas.create_oval(x-3, y-3, x+3, y+3, fill="#5ec12b", outline="", tags = "start_point")
-    if tags == "end_point": 
-        print(x, y)
-        canvas.delete("end_point")
-        canvas.create_oval(x-3, y-3, x+3, y+3, fill="#f2c04f", outline="", tags = "end_point")
-
-def find_path():
-    pq = priorQ()
-    pq.put((start_coords, 0))
-    while len(pq):
-        point, dist = pq.get()
-        
-def draw_path():
-    if start_coords == (0, 0) or end_coords == (0, 0):
-        print("Pick a start and an end")
-        return
-    for i in range(len(Map)):
-        addEdge(i, -2, Map[i], start_coords)
-        addEdge(i, -1, Map[i], end_coords)
-    addEdge(-1, -2, start_coords, end_coords)
-    Map.append(start_coords)
-    Map.append(end_coords)
-    create_graph()
-    
 def left_click(event):
     x, y = float(event.x / GRID_SZ), float(event.y / GRID_SZ)
-    if in_polygon(Map, x, y):
+    if in_polygon(Map, (x, y), (x, y)):
         global start_pin
         global end_pin
         if start_pin: 
@@ -241,6 +158,85 @@ def left_click(event):
             
 def move(event):
     cursor_coords_log.set(f"({event.x:d}; {event.y:d})")
+    
+def draw_graph(tags):
+    canvas.delete(tags)
+    if tags == "path":
+        global Path
+        x1, y1 = None, None
+        for u in Path:
+            if u == -2: 
+                x2, y2 = start_coords
+            elif u == -1:
+                x2, y2 = end_coords
+            else:
+                x2, y2 = Map[u]
+            if x1: 
+                canvas.create_line(x1 * GRID_SZ, y1 * GRID_SZ, x2 * GRID_SZ, y2 * GRID_SZ, fill = "#2563eb", width = GRID_SZ / 10, tags = "path")
+            x1, y1 = x2, y2
+        return
+                
+    for u in Graph:
+        if u == -2: 
+            x1, y1 = start_coords
+        elif u == -1:
+            x1, y1 = end_coords
+        else:
+            x1, y1 = Map[u]
+        for v in Graph[u]:
+            if v < u: continue
+            if v == -2:
+                x2, y2 = start_coords
+            elif v == -1:
+                x2, y2 = end_coords
+            else:
+                x2, y2 = Map[v]
+            canvas.create_line(x1 * GRID_SZ, y1 * GRID_SZ, x2 * GRID_SZ, y2 * GRID_SZ, fill = "#ff4f00", width = 1.25, tags = "graph")
+
+def MapToEdge():
+    createGraph(Map, Graph)
+    draw_graph("graph")
+
+def draw_point(vertice, tags):
+    canvas.delete("graph")
+    x, y = vertice
+    if tags == "point": canvas.create_oval(x-3, y-3, x+3, y+3, fill="#ff4f00", outline="", tags = "point")
+    if tags == "start_point": 
+        #print(x, y)
+        canvas.delete("start_point")
+        canvas.delete("end_point")
+        canvas.create_oval(x-3, y-3, x+3, y+3, fill="#5ec12b", outline="", tags = "start_point")
+    if tags == "end_point": 
+        #print(x, y)
+        canvas.delete("end_point")
+        canvas.create_oval(x-3, y-3, x+3, y+3, fill="#f2c04f", outline="", tags = "end_point")
+        
+def draw_path():
+    if start_coords == (0, 0) or end_coords == (0, 0):
+        print("Pick your starting and ending point!")
+        return
+    
+    createGraph(Map, Graph)     
+    for i in range(len(Map)):
+        addEdge(Map, Graph, -2, i, start_coords, Map[i])
+        addEdge(Map, Graph, -1, i, end_coords, Map[i])
+    addEdge(Map, Graph, -2, -1, start_coords, end_coords)
+    Map.append(start_coords)
+    Map.append(end_coords)
+    global Path
+    Path = find_path(Graph)
+    draw_graph("path")
+
+def reset():
+    Graph.clear()
+    Path.clear()
+    start_coords = (0, 0)
+    end_coords = (0, 0)
+    canvas.delete("graph", "path", "start_point", "end_point")
+    if Map[-2] == start_coords and Map[-1] == end_coords:
+        Map.pop()
+        Map.pop()
+    
 
 if __name__ == "__main__":
     main()

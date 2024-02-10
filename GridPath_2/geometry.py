@@ -1,3 +1,5 @@
+from math import sqrt
+
 def snap_point(x, y, unit):
     snapped_x = round(x / unit) * unit
     snapped_y = round(y / unit) * unit
@@ -6,19 +8,24 @@ def snap_point(x, y, unit):
 def euclidean_dist(p1, q1):
     x1, y1 = p1
     x2, y2 = q1
-    return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
+    return sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))
 
-def in_polygon(map, x, y):
+def in_polygon(map, p, q):
     inside = False
     for u in range(len(map) - 1):
-        xu, yv = map[u]
-        xv, yu = map[u + 1]
+        if (map[u] == p and map[u+1] == q) or (map[u] == q and map[u+1] == p):
+            return True
+    
+    x, y = (p[0] + q[0]) / 2, (p[1] + q[1]) / 2
+    for u in range(len(map) - 1):
+        ux, vy = map[u]
+        vx, uy = map[u + 1]
 
-        if yv > yu:
-            xu, xv = xv, xu
-            yv, yu = yu, yv
+        if vy > uy:
+            ux, vx = vx, ux
+            vy, uy = uy, vy
 
-        if y > yv and y <= yu and x <= xu + (xv - xu) * (y - yv) / (yu - yv):
+        if y > vy and y <= uy and x <= ux + (vx - ux) * (y - vy) / (uy - vy):
             inside = not inside
 
     return inside
