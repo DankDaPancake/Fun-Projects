@@ -3,14 +3,26 @@ import heapq
 
 INF = float(1e9)
 
-def createGraph(Map, Graph):
-    for i in range(len(Map)):
-        for j in range(i+1, len(Map)):
-            addEdge(Map, Graph, i, j, Map[i], Map[j])
-        
+def createGraph(Map):
+    graph = {}
+    u = len(Map) - 1
+    for v in range(len(Map)):
+        distance = euclidean_dist(Map[u], Map[v])
+        if u not in graph:
+            graph[u] = {}
+        if v not in graph:
+            graph[v] = {}
+        graph[u][v] = graph[v][u] = distance
+        u = v
+                
+    for u in range(len(Map) - 2):
+        for v in range(u+2, len(Map) - 1):
+            graph = addEdge(Map, graph, u, v, Map[u], Map[v])
+    return graph    
+
 def addEdge(Map, Graph, u, v, p1, q1):
     if not in_polygon(Map, p1, q1):
-        return
+        return Graph
     intersected = False
     j = None
     for i in range(len(Map)):
@@ -25,15 +37,15 @@ def addEdge(Map, Graph, u, v, p1, q1):
             break
         j = i
     if intersected: 
-        return
+        return Graph
 
     distance = euclidean_dist(p1, q1)
     if u not in Graph: 
         Graph[u] = {}
-    Graph[u][v] = distance
     if v not in Graph:
         Graph[v] = {}
-    Graph[v][u] = distance
+    Graph[u][v] = Graph[v][u] = distance
+    return Graph
 
 def find_path(Graph):
     dist = {u: INF for u in Graph}
