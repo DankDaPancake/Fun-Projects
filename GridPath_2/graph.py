@@ -1,4 +1,4 @@
-from geometry import intersect, in_polygon, euclidean_dist
+from geometry import intersect, inPolygon, euclideanDistance
 import heapq
 
 INF = float(1e9)
@@ -7,7 +7,7 @@ def createGraph(Map):
     graph = {}
     u = len(Map) - 1
     for v in range(len(Map)):
-        distance = euclidean_dist(Map[u], Map[v])
+        distance = euclideanDistance(Map[u], Map[v])
         if u not in graph:
             graph[u] = {}
         if v not in graph:
@@ -20,8 +20,27 @@ def createGraph(Map):
             graph = addEdge(Map, graph, u, v, Map[u], Map[v])
     return graph    
 
+def addStartEnd(Map, Graph, startCoord, endCoord):
+    for i in range(len(Map)):
+        addEdge(Map, Graph, -2, i, startCoord, Map[i])
+        addEdge(Map, Graph, -1, i, endCoord, Map[i])
+    addEdge(Map, Graph, -2, -1, startCoord, endCoord)
+    Map.append(startCoord)
+    Map.append(endCoord)
+
+def removeStartEnd(Graph):
+    if -1 in Graph:
+        del Graph[-1]
+    if -2 in Graph:
+        del Graph[-1]
+    for u in Graph:
+        if -1 in Graph[u]:
+            del Graph[u][-1]
+        if -2 in Graph[u]:
+            del Graph[u][-2]
+    
 def addEdge(Map, Graph, u, v, p1, q1):
-    if not in_polygon(Map, p1, q1):
+    if not inPolygon(Map, p1, q1):
         return Graph
     intersected = False
     j = None
@@ -39,7 +58,7 @@ def addEdge(Map, Graph, u, v, p1, q1):
     if intersected: 
         return Graph
 
-    distance = euclidean_dist(p1, q1)
+    distance = euclideanDistance(p1, q1)
     if u not in Graph: 
         Graph[u] = {}
     if v not in Graph:
@@ -48,25 +67,25 @@ def addEdge(Map, Graph, u, v, p1, q1):
     return Graph
 
 def find_path(Graph):
-    dist = {u: INF for u in Graph}
-    par = {u: None for u in Graph}
+    Dist = {u: INF for u in Graph}
+    Par = {u: None for u in Graph}
     
     pq = [(0, -2)]
-    dist[-2] = 0
+    Dist[-2] = 0
     while pq:
         du, u = heapq.heappop(pq)
         for v in Graph[u]:
-            if dist[v] > dist[u] + Graph[u][v]:
-                dist[v] = dist[u] + Graph[u][v]
-                par[v] = u
+            if Dist[v] > Dist[u] + Graph[u][v]:
+                Dist[v] = Dist[u] + Graph[u][v]
+                Par[v] = u
                 if v != -1: 
-                    heapq.heappush(pq, (dist[v], v))
+                    heapq.heappush(pq, (Dist[v], v))
     
     path = []
     v = -1
     path.append(v)
-    while par[v]:
-        v = par[v]
+    while Par[v]:
+        v = Par[v]
         path.append(v)
     return path
     

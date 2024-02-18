@@ -1,0 +1,8 @@
+GRID_SIZE = 25
+GRID_COLOR = "#d4d4d4"
+
+PADDING = 10
+
+MAP_COLOR = "#ff4f00"
+START_COLOR = "#5ec12b"
+END_COLOR = "#f2c04f"

@@ -2,17 +2,18 @@ fi = open('temp.inp', 'r')
 
 import tkinter as Tk
 import time
-from geometry import in_polygon, intersect, snap_point, orientation
-from graph import addEdge, createGraph, find_path
+from presets import *
+from geometry import inPolygon, intersect, snapPoint, orientation
+from graph import createGraph, find_path, addStartEnd, removeStartEnd
 
 Map, Graph, Path = [], {}, []
-GRID_SZ = 25
-editing_map = True
-start_coords, end_coords = (), ()
+editMap = True
+startCoord, endCoord = (), ()
+isStart, isEnd = False, False
 
 def main():
     window = Tk.Tk()
-    window.title('Draw Graph')
+    window.title('Visibility Graph and Shortest Path')
     global WIN_WIDTH
     global WIN_HEIGHT
     WIN_WIDTH = window.winfo_screenwidth() * 3 / 4
@@ -29,10 +30,10 @@ def main():
         )
     )
     
-    root_frame =  Tk.Frame(window).pack(padx = 5, pady = 5)
+    root_frame =  Tk.Frame(window).pack(padx = PADDING, pady = PADDING / 2)
     
     menu_frame = Tk.Frame(root_frame)
-    menu_frame.pack(side = Tk.TOP, padx = 5, pady = 5, fill = "x")
+    menu_frame.pack(side = Tk.TOP, padx = PADDING, pady = PADDING / 2, fill = "x")
     
     map_menu1 = Tk.Frame(menu_frame)
     map_menu1.pack(side = Tk.LEFT)
@@ -40,25 +41,15 @@ def main():
     map_menu2 = Tk.Frame(menu_frame)
     map_menu2.pack(side = Tk.LEFT)
     
-    Tk.Button(map_menu1, text = "Edit Map", command = edit_map).pack(
-        side = Tk.LEFT, padx = 10
-    )
-    Tk.Button(map_menu2, text = "Pick Start", command = pin_start).pack(
-        side = Tk.LEFT, padx = 10
-    )
-    Tk.Button(map_menu2, text = "Pick End", command = pin_end).pack(
-        side = Tk.LEFT, padx = 10
-    )
-    Tk.Button(map_menu1, text = "Find Path", command = draw_path).pack(
-        side = Tk.LEFT, padx = 10
-    )
-    Tk.Button(map_menu1, text = "Reset", command = reset).pack(
-        side = Tk.LEFT, padx = 10
-    )
+    Tk.Button(map_menu1, text = "Edit Map", command = edit_map).pack(side = Tk.LEFT, padx = PADDING)
+    Tk.Button(map_menu2, text = "Pick Start", command = pinStart).pack(side = Tk.LEFT, padx = PADDING)
+    Tk.Button(map_menu2, text = "Pick End", command = pinEnd).pack(side = Tk.LEFT, padx = PADDING)
+    Tk.Button(map_menu1, text = "Find Path", command = findPath).pack(side = Tk.LEFT, padx = PADDING)
+    Tk.Button(map_menu1, text = "Reset", command = reset).pack(side = Tk.LEFT, padx = PADDING)
     
     global canvas
     canvas = Tk.Canvas(root_frame, bg = "#ffffff")
-    canvas.pack(padx = 5, pady = 5, expand = True, fill = "both")
+    canvas.pack(padx = PADDING, pady = PADDING / 2, expand = True, fill = "both")
 
     global CAV_WIDTH
     global CAV_HEIGHT
@@ -67,24 +58,26 @@ def main():
     CAV_HEIGHT = canvas.winfo_height()
     
     log_frame = Tk.Frame(root_frame)
-    log_frame.pack(side = Tk.BOTTOM, padx = 5, pady = 5, fill = "x")
+    log_frame.pack(side = Tk.BOTTOM, padx = PADDING, pady = PADDING / 2, fill = "x")
     
     global log
     log = Tk.StringVar()
-    Tk.Label(log_frame, textvariable = log).pack(side = Tk.LEFT, padx = 5)
+    Tk.Label(log_frame, textvariable = log).pack(side = Tk.LEFT, padx = PADDING)
     
     global cursor_log
     cursor_log = Tk.StringVar()
     cursor_log.set("(0; 0)")
-    Tk.Label(log_frame, textvariable = cursor_log).pack(side = Tk.RIGHT, padx = 5)
+    Tk.Label(log_frame, textvariable = cursor_log).pack(side = Tk.RIGHT, padx = PADDING)
     
     global startpoint_log
     startpoint_log = Tk.StringVar()
-    Tk.Label(log_frame, textvariable = startpoint_log).pack(side = Tk.RIGHT, padx = 5)
+    startpoint_log.set("Start point: (0; 0).")
+    Tk.Label(log_frame, textvariable = startpoint_log).pack(side = Tk.RIGHT, padx = PADDING)
     
     global endpoint_log
     endpoint_log = Tk.StringVar()
-    Tk.Label(log_frame, textvariable = endpoint_log).pack(side = Tk.RIGHT, padx = 5)
+    endpoint_log.set("End point: (0; 0).")
+    Tk.Label(log_frame, textvariable = endpoint_log).pack(side = Tk.RIGHT, padx = PADDING)
     
     canvas.bind("<Motion>", move)
     canvas.bind("<Button-1>", left_click)
@@ -94,34 +87,40 @@ def main():
     window.mainloop()
 
 def updateCanvas():
-    '''
-    if not editing_map:
+    
+    '''if not editMap:
         for u in Graph:
             for v in Graph[u]:
                 if v < u: continue
                 canvas.create_line(Map[u], Map[v], fill = "#000000", tags = "graph")
     '''
-    drawLines(Map, "#000000", 2.5, tags = "map")
     
-def pin_start():
-    global start_pin
-    start_pin = True
+    drawLines(Map, "#000000", 2.5, tags = "map")
+    if startCoord: drawPoint(startCoord, "start_point")
+    if endCoord: drawPoint(endCoord, "end_point")
+    
+def pinStart():
+    canvas.delete("preview")
+    global editMap, editStart, editEnd
+    editMap = False
+    editStart = True
+    editEnd = False
 
-def pin_end():
-    global start_pin
-    if start_pin: 
-        exit
-    global end_pin
-    end_pin = True
+def pinEnd():
+    canvas.delete("preview")
+    global editMap, editStart, editEnd
+    editMap = False
+    editEnd = True
+    editStart = False
     
 def drawGrid():
-    MAP_WIDTH = CAV_WIDTH // GRID_SZ
-    MAP_HEIGHT = CAV_HEIGHT // GRID_SZ
+    MAP_WIDTH = CAV_WIDTH // GRID_SIZE
+    MAP_HEIGHT = CAV_HEIGHT // GRID_SIZE
     
     for i in range(MAP_WIDTH + 1):
-        canvas.create_line(i * GRID_SZ, 0, i * GRID_SZ, CAV_HEIGHT, fill = "#d4d4d4", tags = "grid")   
+        canvas.create_line(i * GRID_SIZE, 0, i * GRID_SIZE, CAV_HEIGHT, fill = GRID_COLOR, tags = "grid")   
     for i in range(MAP_HEIGHT + 1):
-        canvas.create_line(0, i * GRID_SZ, CAV_WIDTH, i * GRID_SZ, fill = "#d4d4d4", tags = "grid") 
+        canvas.create_line(0, i * GRID_SIZE, CAV_WIDTH, i * GRID_SIZE, fill = GRID_COLOR, tags = "grid") 
 
 def drawLines(lines, color, width, tags):
     u = ()
@@ -132,104 +131,88 @@ def drawLines(lines, color, width, tags):
         u = v
     
 def edit_map():
-    global editing_map
-    if editing_map:
+    global editMap
+    if editMap:
         return
     
-    reset(True)
-    if map:
-        map.pop()
-    editing_map = True
-    draw_graph()
+    reset()
+    if Map:
+        Map.pop()
+    editMap = True
+    updateCanvas()
     
-def draw_graph(tags):
+def drawGraph(tags):
     canvas.delete(tags)
     if tags == "path":
         global Path
-        x1, y1 = None, None
+        x1, y1 = (), ()
         for u in Path:
             if u == -2: 
-                x2, y2 = start_coords
+                x2, y2 = startCoord
             elif u == -1:
-                x2, y2 = end_coords
+                x2, y2 = endCoord
             else:
                 x2, y2 = Map[u]
             if x1: 
-                canvas.create_line(x1 * GRID_SZ, y1 * GRID_SZ, x2 * GRID_SZ, y2 * GRID_SZ, fill = "#2563eb", width = GRID_SZ / 10, tags = "path")
+                print(x1, y1, x2, y2)
+                canvas.create_line(x1, y1, x2, y2, fill = "#2563eb", width = GRID_SIZE / PADDING, tags = "path")
             x1, y1 = x2, y2
         return
-                
-    for u in Graph:
-        if u == -2: 
-            x1, y1 = start_coords
-        elif u == -1:
-            x1, y1 = end_coords
-        else:
-            x1, y1 = Map[u]
-        for v in Graph[u]:
-            if v < u: continue
-            if v == -2:
-                x2, y2 = start_coords
-            elif v == -1:
-                x2, y2 = end_coords
-            else:
-                x2, y2 = Map[v]
-            canvas.create_line(x1 * GRID_SZ, y1 * GRID_SZ, x2 * GRID_SZ, y2 * GRID_SZ, fill = "#ff4f00", width = 1.25, tags = "graph")
 
 def drawPoint(vertice, tags):
     x, y = vertice
-    log.set(f"Point snapped on {x / GRID_SZ, y / GRID_SZ}")
-    if tags == "map": canvas.create_oval(x-3, y-3, x+3, y+3, fill="#ff4f00", outline="", tags = tags)
+    log.set(f"Point snapped on {x // GRID_SIZE, y / GRID_SIZE}")
+    if tags == "map": canvas.create_oval(x-3, y-3, x+3, y+3, fill = MAP_COLOR, outline = "", tags = tags)
     if tags == "start_point": 
         #print(x, y)
         canvas.delete("start_point")
         canvas.delete("end_point")
-        canvas.create_oval(x-3, y-3, x+3, y+3, fill="#5ec12b", outline="", tags = "start_point")
+        canvas.create_oval(x-3, y-3, x+3, y+3, fill = START_COLOR, outline = "", tags = "start_point")
     if tags == "end_point": 
         #print(x, y)
         canvas.delete("end_point")
-        canvas.create_oval(x-3, y-3, x+3, y+3, fill="#f2c04f", outline="", tags = "end_point")
-        
-def draw_path():
-    if not start_coords or not end_coords:
+        canvas.create_oval(x-3, y-3, x+3, y+3, fill = END_COLOR, outline = "", tags = "end_point")
+
+def drawCursor(x1, y1):
+    x2, y2 = Map[-1]
+    canvas.delete("preview")
+    canvas.create_line(x1, y1, x2, y2, fill = "#949494", width = 2.5, tags = "preview")
+    
+def findPath():
+    if not startCoord or not endCoord:
         log.set("Pick your starting and ending point!")
         return
+    print(startCoord, endCoord)
+    addStartEnd(Map, Graph, startCoord, endCoord)
     
-    createGraph(Map, Graph)     
-    for i in range(len(Map)):
-        addEdge(Map, Graph, -2, i, start_coords, Map[i])
-        addEdge(Map, Graph, -1, i, end_coords, Map[i])
-    addEdge(Map, Graph, -2, -1, start_coords, end_coords)
-    Map.append(start_coords)
-    Map.append(end_coords)
     start_time = time.time()
     global Path
     Path = find_path(Graph)
+    print(Path)
     taken_time = time.time() - start_time
-    log.set(f"Path found in {taken_time:.5f}s.")
-    draw_graph("path")
+    log.set(f"Path found in {(taken_time / 3):.10f} ms.")
+    drawGraph("path")
 
 def reset(state = True):
-    global start_coords, end_coords, Path, Graph
-    Graph.clear()
-    Path.clear()
+    global startCoord, endCoord, Path, Graph, Map
     if state:
-        start_coords = ()
-        end_coords = ()
-    canvas.delete("graph", "path", "start_point", "end_point")
-    if Map[-2] == start_coords and Map[-1] == end_coords:
-        Map.pop()
-        Map.pop()
+        if Map[-2] == startCoord and Map[-1] == endCoord:
+            del Map[-2:]
+        startCoord = ()
+        endCoord = ()
+    
+    Path = []
+    removeStartEnd(Graph)
 
 def left_click(event):
-    global editing_map
-    if editing_map:
-        coords = snap_point(event.x, event.y, GRID_SZ)
+    global editMap
+    if editMap:
+        coords = snapPoint(event.x, event.y, GRID_SIZE)
         if Map:
             if coords in Map and (len(Map) == 1 or coords != Map[0]):
                 while Map[-1] != coords:
-                    map.pop()
-                map.pop()
+                    Map.pop()
+                Map.pop()
             else:
                 intersected = False
                 for i in range(len(Map) - 2):
@@ -248,7 +231,7 @@ def left_click(event):
                                 Map.pop(0)
                             Map.append(Map[0])
                             
-                            editing_map = False
+                            editMap = False
                             global Graph
                             Graph = createGraph(Map)
                         else:
@@ -259,28 +242,33 @@ def left_click(event):
                     log.set("Line intersected.")
         else: 
             Map.append(coords)
-    else:                            
-        x, y = float(event.x / GRID_SZ), float(event.y / GRID_SZ)
-        if in_polygon(Map, (x, y), (x, y)):
+    elif len(Map) > 2:                            
+        x, y = event.x, event.y
+        if inPolygon(Map, (x, y), (x, y)):
+            print(x, y)
             reset(False)
-            global start_pin
-            global end_pin
-            if start_pin: 
-                global start_coords
-                start_coords = x, y
-                start_pin = False
-            elif end_pin:
-                global end_coords
-                end_coords = x, y
-                end_pin = False
+            global editStart
+            global editEnd
+            if editStart: 
+                global startCoord
+                startCoord = x, y
+                startpoint_log.set(f"Start point: ({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f}).")
+            elif editEnd:
+                global endCoord
+                endCoord = x, y
+                endpoint_log.set(f"End point: ({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f}).")
         else:
             log.set("Invalid point!")
+    else: 
+        editMap = True
     
     updateCanvas()
 
-            
 def move(event):
-    cursor_log.set(f"({event.x:d}; {event.y:d})")
+    x, y = event.x, event.y
+    cursor_log.set(f"({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f})")
+    x, y = snapPoint(x, y, GRID_SIZE)
+    if Map and editMap: drawCursor(x, y)
 
 if __name__ == "__main__":
     main()

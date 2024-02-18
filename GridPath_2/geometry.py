@@ -1,16 +1,16 @@
 from math import sqrt
 
-def snap_point(x, y, unit):
+def snapPoint(x, y, unit):
     snapped_x = round(x / unit) * unit
     snapped_y = round(y / unit) * unit
     return snapped_x, snapped_y
 
-def euclidean_dist(p1, q1):
+def euclideanDistance(p1, q1):
     x1, y1 = p1
     x2, y2 = q1
     return sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))
 
-def in_polygon(map, p, q):
+def inPolygon(map, p, q):
     inside = False
     for u in range(len(map) - 1):
         if (map[u] == p and map[u+1] == q) or (map[u] == q and map[u+1] == p):
