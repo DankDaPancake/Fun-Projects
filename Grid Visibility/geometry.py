@@ -1,10 +1,5 @@
 from math import sqrt
 
-def snapPoint(x, y, size):
-    snapped_x = round(x / size) * size
-    snapped_y = round(y / size) * size
-    return snapped_x, snapped_y
-
 def euclideanDistance(p1, q1):
     x1, y1 = p1
     x2, y2 = q1
