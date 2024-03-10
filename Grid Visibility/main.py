@@ -29,7 +29,7 @@ def main():
     root_frame = Tk.Frame(window).pack(padx = PADDING, pady = PADDING / 2)
     
     menu_frame = Tk.Frame(root_frame)
-    menu_frame.pack(side = Tk.TOP, padx = PADDING, pady = PADDING / 2, fill = "y")
+    menu_frame.pack(side = Tk.TOP, padx = PADDING, pady = PADDING / 2, fill = "x")
     
     map_menu = Tk.Frame(menu_frame)
     map_menu.pack(side = Tk.LEFT)
@@ -39,15 +39,18 @@ def main():
 
     Tk.Button(map_menu, text = "Pick Start", bg = BUTTON_COLOR, command = pinStart).pack(side = Tk.LEFT, padx = PADDING)
     Tk.Button(map_menu, text = "Pick End", bg = BUTTON_COLOR, command = pinEnd).pack(side = Tk.LEFT, padx = PADDING)
-    Tk.Button(map_menu, text = "Show Graph", bg = BUTTON_COLOR, command = drawGraph).pack(side = Tk.LEFT, padx = PADDING)
     Tk.Button(map_menu, text = "Find Path", bg = BUTTON_COLOR, command = drawPath).pack(side = Tk.LEFT, padx = PADDING)
+
+    global displayGraph
+    displayGraph = Tk.BooleanVar()
+    Tk.Checkbutton(map_menu, text="Show Graph", command=on_tick, variable=displayGraph).pack(side = Tk.LEFT, padx = PADDING)
 
     global textvalue, textentry
     textvalue = Tk.IntVar()
-    textentry = Tk.Entry(map_menu, width = 10, textvariable = textvalue, bg = BUTTON_COLOR).pack(side = Tk.RIGHT)
+    textentry = Tk.Entry(menu_frame, width = 10, textvariable = textvalue, bg = BUTTON_COLOR).pack(side = Tk.RIGHT, padx = PADDING)
     textvalue.trace_add("write", on_value_changes)
-    Tk.Label(map_menu, text = "Duplicates:").pack(side = Tk.RIGHT)
-    
+    Tk.Label(menu_frame, text = "Duplicates:").pack(side = Tk.RIGHT, padx = PADDING)
+
     global canvas
     canvas = Tk.Canvas(root_frame, bg = "#ffffff")
     canvas.pack(padx = PADDING, pady = PADDING / 2, expand = True, fill = "both")
@@ -200,7 +203,7 @@ def drawPath():
 def drawGraph(tags = "graph"):
     canvas.delete(tags)
     if tags == "path":
-        global Path
+        global Path, startCoord, endCoord
         x1, y1 = (), ()
         for u in Path:
             if u == -2: x2, y2 = startCoord
@@ -218,7 +221,6 @@ def drawGraph(tags = "graph"):
             for v in Graph[u]:
                 if v < u: continue
                 canvas.create_line(Map[u], Map[v], fill = "grey", tags = "graph")
-        
 
 def drawGrid():
     MAP_WIDTH = CAV_WIDTH // GRID_SIZE
@@ -266,9 +268,15 @@ def on_value_changes(*args):
         k = textvalue.get()
     except: 
         k = 0
-    if k > 1000: k = 1000
+    if k > 100: k = 100
     duplicateBase(k)
-    
+
+def on_tick():
+    state = displayGraph.get()
+    if state:
+        drawGraph("graph")
+    else:
+        canvas.delete("graph")
 def on_left_click(event):
     global startCoord, endCoord, editStart, editEnd
         
@@ -277,13 +285,13 @@ def on_left_click(event):
         if inPolygon(Map, (x, y), (x, y)):
             if editStart: 
                 startCoord = x, y
-                drawPoint(startCoord, "start_point")
+                drawPoint(0, startCoord, "start_point")
                 startpoint_log.set(f"Start point: ({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f}).")
                 editStart = False
                 if not endCoord: editEnd = True
             elif editEnd:
                 endCoord = x, y
-                drawPoint(endCoord, "end_point")
+                drawPoint(0, endCoord, "end_point")
                 endpoint_log.set(f"End point: ({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f}).")
                 editEnd = False
                 if not startCoord: editStart = True
