@@ -11,6 +11,8 @@ Map, MapRootId, Graph, Path = [], [], {}, []
 startCoord, endCoord = (), ()
 editStart, editEnd = True, False
 inCanvas = True
+newScale = GRID_SIZE
+counter = 0
 
 def main():
     window = Tk.Tk()
@@ -51,6 +53,12 @@ def main():
     textvalue.trace_add("write", on_value_changes)
     Tk.Label(menu_frame, text = "Duplicates:").pack(side = Tk.RIGHT, padx = PADDING)
 
+    global scalevalue, scaleentry
+    scalevalue = Tk.IntVar()
+    scaleentry = Tk.Entry(menu_frame, width = 10, textvariable = scalevalue, bg = BUTTON_COLOR).pack(side = Tk.RIGHT, padx = PADDING)
+    scalevalue.trace_add("write", on_scale_changes)
+    Tk.Label(menu_frame, text = "Scale:").pack(side = Tk.RIGHT, padx = PADDING)
+
     global canvas
     canvas = Tk.Canvas(root_frame, bg = "#ffffff")
     canvas.pack(padx = PADDING, pady = PADDING / 2, expand = True, fill = "both")
@@ -85,7 +93,7 @@ def main():
     window.mainloop()
     
 def scanMap():
-    global BaseMap, BaseGraph
+    global BaseMap, BaseGraph, GRID_SIZE
     for readline in fi.read().split("\n"):
         ux, uy = map(int, readline.split(" "))
         BaseMap.append((ux * GRID_SIZE, uy * GRID_SIZE))
@@ -111,6 +119,7 @@ def duplicateBase(k):
     
     n = len(BaseMap)
     
+    global GRID_SIZE
     start_time = time.time()
     
     for i in range(k):
@@ -174,7 +183,7 @@ def duplicateBase(k):
         Graph[u-1][v] = Graph[v][u-1] = euclideanDistance(Map[u-1], Map[v])
         Graph[v][v+1] = Graph[v+1][v] = euclideanDistance(Map[v], Map[v+1])
     
-    drawLines(Map, color = "black", width = 2.5, tags = "map")
+    drawLines(Map, color = "black", width = GRID_SIZE / 10, tags = "map")
     status_log.set(f"Map generated in {(time.time() - start_time):.5f} s.")
 
 def pinStart():
@@ -192,7 +201,10 @@ def drawPath():
         status_log.set("Pick your starting and ending point!")
         return
     global Graph, Map
+    print(startCoord, endCoord)
     addStartEnd(Map, Graph, startCoord, endCoord)
+    print(Graph[-1])
+    print(Graph[-2])
     
     global Path
     start_time = time.time()
@@ -201,6 +213,7 @@ def drawPath():
     drawGraph("path")
     
 def drawGraph(tags = "graph"):
+    offset = newScale / GRID_SIZE
     canvas.delete(tags)
     if tags == "path":
         global Path, startCoord, endCoord
@@ -210,7 +223,7 @@ def drawGraph(tags = "graph"):
             elif u == -1: x2, y2 = endCoord
             else: x2, y2 = Map[u]
             if x1: 
-                canvas.create_line(x1, y1, x2, y2, fill = "#2563eb", width = GRID_SIZE / PADDING, tags = "path")
+                canvas.create_line(x1 * offset, y1 * offset, x2 * offset, y2 * offset, fill = "#2563eb", width = GRID_SIZE / PADDING, tags = "path")
             x1, y1 = x2, y2
             
     elif tags == "graph":
@@ -220,37 +233,44 @@ def drawGraph(tags = "graph"):
         for u in Graph:
             for v in Graph[u]:
                 if v < u: continue
-                canvas.create_line(Map[u], Map[v], fill = "grey", tags = "graph")
+                canvas.create_line(Map[u][0] * offset, Map[u][1] * offset, Map[v][0] * offset, Map[v][1] * offset, fill = "grey", tags = "graph")
 
 def drawGrid():
-    MAP_WIDTH = CAV_WIDTH // GRID_SIZE
-    MAP_HEIGHT = CAV_HEIGHT // GRID_SIZE
-    
+    MAP_WIDTH = CAV_WIDTH // newScale
+    MAP_HEIGHT = CAV_HEIGHT // newScale
+
     for i in range(MAP_WIDTH):
-        canvas.create_line(i * GRID_SIZE, 0, i * GRID_SIZE, CAV_HEIGHT, fill = GRID_COLOR, tags = "grid")   
+        canvas.create_line(i * newScale, 0, i * newScale, CAV_HEIGHT, fill = GRID_COLOR, tags = "grid")   
     for i in range(MAP_HEIGHT):
-        canvas.create_line(0, i * GRID_SIZE, CAV_WIDTH, i * GRID_SIZE, fill = GRID_COLOR, tags = "grid") 
+        canvas.create_line(0, i * newScale, CAV_WIDTH, i * newScale, fill = GRID_COLOR, tags = "grid") 
 
 def drawLines(verts, color, width, tags):
     #canvas.create_polygon(Map[:-1], fill = "#ddeeff", tags = "map")
-    for i in range(len(verts) - 1):
-        drawPoint(i, verts[i], tags)
-        canvas.create_line(verts[i], verts[i+1], fill = color, width = width, tags = tags)
+    if not verts: return
+    offset = newScale / GRID_SIZE
+    ux, uy = verts[0]
+    for i in range(1, len(verts)):
+        vx, vy = verts[i]
+        drawPoint((ux, uy), tags, offset)
+        canvas.create_line(ux * offset, uy * offset, vx * offset, vy * offset, fill = color, width = width, tags = tags)
+        ux, uy = vx, vy
         
-def drawPoint(index, vertice, tags):
+def drawPoint(vertice, tags, offset):
     x, y = vertice
-    if tags == "map": 
-        circle = canvas.create_oval(x-3, y-3, x+3, y+3, fill = "black", outline = "", tags = tags)
-        canvas.create_text(x -8, y -8, text = str(index + 1), tags = "label")
+    if tags == "map":
+        global counter 
+        counter += 1
+        canvas.create_text((x-8) * offset, (y-8) * offset, text = str(counter), tags = "label")
+        canvas.create_oval((x-3) * offset, (y-3) * offset, (x+3) * offset, (y+3) * offset, fill = "black", outline = "", tags = tags)
         
     if tags == "start_point": 
         canvas.delete("start_point")
         canvas.delete("end_point")
-        canvas.create_oval(x-3, y-3, x+3, y+3, fill = START_COLOR, outline = "", tags = tags)
+        canvas.create_oval((x-3) * offset, (y-3) * offset, (x+3) * offset, (y+3) * offset, fill = START_COLOR, outline = "", tags = tags)
         
     if tags == "end_point": 
         canvas.delete("end_point")
-        canvas.create_oval(x-3, y-3, x+3, y+3, fill = END_COLOR, outline = "", tags = tags)
+        canvas.create_oval((x-3) * offset, (y-3) * offset, (x+3) * offset, (y+3) * offset, fill = END_COLOR, outline = "", tags = tags)
 
 def drawCursor(x, y):
     canvas.delete("cursor_preview")
@@ -268,8 +288,26 @@ def on_value_changes(*args):
         k = textvalue.get()
     except: 
         k = 0
-    if k > 100: k = 100
+    if k > 75: k = 75
+    global counter
+    counter = 0
     duplicateBase(k)
+
+def on_scale_changes(*args):
+    global scalevalue, GRID_SIZE
+    try:
+        k = scalevalue.get()
+    except:
+        k = GRID_SIZE
+    
+    if k == 0: k = GRID_SIZE
+    
+    global newScale, counter
+    newScale = k
+    counter = 0
+    canvas.delete("grid", "graph", "map", "path", "start_point", "end_point", "label")
+    drawGrid()
+    drawLines(Map, "black", GRID_SIZE / 10, "map")
 
 def on_tick():
     state = displayGraph.get()
@@ -277,21 +315,23 @@ def on_tick():
         drawGraph("graph")
     else:
         canvas.delete("graph")
+        
 def on_left_click(event):
     global startCoord, endCoord, editStart, editEnd
-        
+    
+    offset = newScale / GRID_SIZE
     if len(Map) > 2:                            
-        x, y = event.x, event.y
+        x, y = event.x / offset, event.y / offset
         if inPolygon(Map, (x, y), (x, y)):
             if editStart: 
                 startCoord = x, y
-                drawPoint(0, startCoord, "start_point")
+                drawPoint(startCoord, "start_point", offset)
                 startpoint_log.set(f"Start point: ({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f}).")
                 editStart = False
                 if not endCoord: editEnd = True
             elif editEnd:
                 endCoord = x, y
-                drawPoint(0, endCoord, "end_point")
+                drawPoint(endCoord, "end_point", offset)
                 endpoint_log.set(f"End point: ({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f}).")
                 editEnd = False
                 if not startCoord: editStart = True
@@ -301,7 +341,7 @@ def on_left_click(event):
 def on_cursor_move(event):
     global inCanvas
     if not inCanvas: return
-    cursor_log.set(f"Cursor: ({(event.x / GRID_SIZE):.2f}; {(event.y / GRID_SIZE):.2f}).")
+    cursor_log.set(f"Cursor: ({(event.x / newScale):.2f}; {(event.y / newScale):.2f}).")
     drawCursor(event.x, event.y)
     
 def on_enter(event):
