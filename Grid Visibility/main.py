@@ -4,15 +4,15 @@ import tkinter as Tk
 import time
 from presets import *
 from geometry import inPolygon, euclideanDistance
-from graph import createGraph, findPath, addStartEnd
+from graph import createGraph, findPath, addStartEnd, removeStartEnd
 
 BaseMap, BaseGraph = [], {}
 Map, MapRootId, Graph, Path = [], [], {}, []
 startCoord, endCoord = (), ()
 editStart, editEnd = True, False
-inCanvas = True
+inCanvas, isDragging = True, False
 newScale = GRID_SIZE
-counter = 0
+counter, Ox, Oy, offsetX, offsetY = 0, 0, 0, 0, 0
 
 def main():
     window = Tk.Tk()
@@ -49,15 +49,15 @@ def main():
 
     global textvalue, textentry
     textvalue = Tk.IntVar()
-    textentry = Tk.Entry(menu_frame, width = 10, textvariable = textvalue, bg = BUTTON_COLOR).pack(side = Tk.RIGHT, padx = PADDING)
+    textentry = Tk.Entry(menu_frame, width = 8, textvariable = textvalue, bg = BUTTON_COLOR).pack(side = Tk.RIGHT, padx = PADDING)
     textvalue.trace_add("write", on_value_changes)
-    Tk.Label(menu_frame, text = "Duplicates:").pack(side = Tk.RIGHT, padx = PADDING)
+    Tk.Label(menu_frame, text = "Duplicates:").pack(side = Tk.RIGHT)
 
     global scalevalue, scaleentry
     scalevalue = Tk.IntVar()
-    scaleentry = Tk.Entry(menu_frame, width = 10, textvariable = scalevalue, bg = BUTTON_COLOR).pack(side = Tk.RIGHT, padx = PADDING)
+    scaleentry = Tk.Entry(menu_frame, width = 8, textvariable = scalevalue, bg = BUTTON_COLOR).pack(side = Tk.RIGHT, padx = PADDING)
     scalevalue.trace_add("write", on_scale_changes)
-    Tk.Label(menu_frame, text = "Scale:").pack(side = Tk.RIGHT, padx = PADDING)
+    Tk.Label(menu_frame, text = "Scale:").pack(side = Tk.RIGHT)
 
     global canvas
     canvas = Tk.Canvas(root_frame, bg = "#ffffff")
@@ -85,8 +85,10 @@ def main():
     
     canvas.bind("<Motion>", on_cursor_move)
     canvas.bind("<Button-1>", on_left_click)
+    canvas.bind("<Button-3>", on_right_click)
     canvas.bind("<Enter>", on_enter)
     canvas.bind("<Leave>", on_leave)
+    canvas.bind("<B1-Motion>", on_drag)
     
     scanMap()
     drawGrid()
@@ -201,15 +203,12 @@ def drawPath():
         status_log.set("Pick your starting and ending point!")
         return
     global Graph, Map
-    print(startCoord, endCoord)
     addStartEnd(Map, Graph, startCoord, endCoord)
-    print(Graph[-1])
-    print(Graph[-2])
     
     global Path
     start_time = time.time()
     Path, Distance = findPath(Graph)
-    status_log.set(f"Found shortest path found in {(time.time() - start_time):.5f} s. Distance: {(Distance / GRID_SIZE):.2f}")
+    status_log.set(f"Found shortest path found in {((time.time() - start_time) * 1000):.5f} ms. Distance: {(Distance / GRID_SIZE):.2f}")
     drawGraph("path")
     
 def drawGraph(tags = "graph"):
@@ -223,7 +222,7 @@ def drawGraph(tags = "graph"):
             elif u == -1: x2, y2 = endCoord
             else: x2, y2 = Map[u]
             if x1: 
-                canvas.create_line(x1 * offset, y1 * offset, x2 * offset, y2 * offset, fill = "#2563eb", width = GRID_SIZE / PADDING, tags = "path")
+                canvas.create_line(x1 * offset, y1 * offset, x2 * offset, y2 * offset, fill = "#2563eb", width = newScale / PADDING, tags = "path")
             x1, y1 = x2, y2
             
     elif tags == "graph":
@@ -233,16 +232,15 @@ def drawGraph(tags = "graph"):
         for u in Graph:
             for v in Graph[u]:
                 if v < u: continue
-                canvas.create_line(Map[u][0] * offset, Map[u][1] * offset, Map[v][0] * offset, Map[v][1] * offset, fill = "grey", tags = "graph")
+                canvas.create_line(Map[u][0] * offset, Map[u][1] * offset, Map[v][0] * offset, Map[v][1] * offset, fill = "grey", width = newScale / 20, tags = "graph")
 
-def drawGrid():
+def drawGrid(offsetX = 0, offsetY = 0):
     MAP_WIDTH = CAV_WIDTH // newScale
     MAP_HEIGHT = CAV_HEIGHT // newScale
-
     for i in range(MAP_WIDTH):
-        canvas.create_line(i * newScale, 0, i * newScale, CAV_HEIGHT, fill = GRID_COLOR, tags = "grid")   
+        canvas.create_line(i * newScale + offsetX, offsetY, i * newScale + offsetX, CAV_HEIGHT + offsetY, fill = GRID_COLOR, tags = "grid")   
     for i in range(MAP_HEIGHT):
-        canvas.create_line(0, i * newScale, CAV_WIDTH, i * newScale, fill = GRID_COLOR, tags = "grid") 
+        canvas.create_line(offsetX, i * newScale + offsetY, CAV_WIDTH + offsetX, i * newScale + offsetY, fill = GRID_COLOR, tags = "grid") 
 
 def drawLines(verts, color, width, tags):
     #canvas.create_polygon(Map[:-1], fill = "#ddeeff", tags = "map")
@@ -260,7 +258,7 @@ def drawPoint(vertice, tags, offset):
     if tags == "map":
         global counter 
         counter += 1
-        canvas.create_text((x-8) * offset, (y-8) * offset, text = str(counter), tags = "label")
+        canvas.create_text((x-7) * offset, (y-7) * offset, text = str(counter), tags = "label")
         canvas.create_oval((x-3) * offset, (y-3) * offset, (x+3) * offset, (y+3) * offset, fill = "black", outline = "", tags = tags)
         
     if tags == "start_point": 
@@ -306,8 +304,9 @@ def on_scale_changes(*args):
     newScale = k
     counter = 0
     canvas.delete("grid", "graph", "map", "path", "start_point", "end_point", "label")
+    removeStartEnd(Graph)
     drawGrid()
-    drawLines(Map, "black", GRID_SIZE / 10, "map")
+    drawLines(Map, "black", newScale / 10, "map")
 
 def on_tick():
     state = displayGraph.get()
@@ -315,7 +314,25 @@ def on_tick():
         drawGraph("graph")
     else:
         canvas.delete("graph")
+
+def on_drag(event):
+
+    global Ox, Oy, offsetX, offsetY, isDragging
+    if isDragging:
         
+        dx = event.x - Ox
+
+        dy = event.y - Oy
+
+        offsetX += dx
+        offsetY += dy
+        canvas.delete("grid")
+        drawGrid(offsetX % newScale, offsetY % newScale)
+        # print(offset_x, offset_y)
+        print(dx, dy)
+        canvas.move("all", dx, dy)
+        Ox, Oy = event.x, event.y
+                    
 def on_left_click(event):
     global startCoord, endCoord, editStart, editEnd
     
@@ -338,6 +355,11 @@ def on_left_click(event):
         else:
             status_log.set("Invalid point!")
 
+def on_right_click(event):
+    global isDragging
+    print(isDragging)
+    isDragging = True
+    
 def on_cursor_move(event):
     global inCanvas
     if not inCanvas: return

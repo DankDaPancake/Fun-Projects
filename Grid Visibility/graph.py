@@ -28,7 +28,7 @@ def addStartEnd(Map, Graph, startCoord, endCoord):
 
 def removeStartEnd(Graph):
     if -1 in Graph: del Graph[-1]
-    if -2 in Graph: del Graph[-1]
+    if -2 in Graph: del Graph[-2]
     for u in Graph:
         if -1 in Graph[u]: del Graph[u][-1]
         if -2 in Graph[u]: del Graph[u][-2]
