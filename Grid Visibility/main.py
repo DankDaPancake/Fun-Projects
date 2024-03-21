@@ -88,7 +88,7 @@ def main():
     canvas.bind("<Button-3>", on_right_click)
     canvas.bind("<Enter>", on_enter)
     canvas.bind("<Leave>", on_leave)
-    canvas.bind("<B1-Motion>", on_drag)
+    canvas.bind("<B3-Motion>", on_drag)
     
     scanMap()
     drawGrid()
@@ -258,7 +258,7 @@ def drawPoint(vertice, tags, offset):
     if tags == "map":
         global counter 
         counter += 1
-        canvas.create_text((x-7) * offset, (y-7) * offset, text = str(counter), tags = "label")
+        #canvas.create_text((x-7) * offset, (y-7) * offset, text = str(counter), tags = "label")
         canvas.create_oval((x-3) * offset, (y-3) * offset, (x+3) * offset, (y+3) * offset, fill = "black", outline = "", tags = tags)
         
     if tags == "start_point": 
@@ -300,7 +300,8 @@ def on_scale_changes(*args):
     
     if k == 0: k = GRID_SIZE
     
-    global newScale, counter
+    global newScale, counter, Ox, Oy
+    Ox, Oy = 0, 0
     newScale = k
     counter = 0
     canvas.delete("grid", "graph", "map", "path", "start_point", "end_point", "label")
@@ -356,14 +357,15 @@ def on_left_click(event):
             status_log.set("Invalid point!")
 
 def on_right_click(event):
-    global isDragging
+    global isDragging, Ox, Oy
+    Ox, Oy = event.x, event.y
     print(isDragging)
     isDragging = True
     
 def on_cursor_move(event):
     global inCanvas
     if not inCanvas: return
-    cursor_log.set(f"Cursor: ({(event.x / newScale):.2f}; {(event.y / newScale):.2f}).")
+    cursor_log.set(f"Cursor: ({((event.x - Ox) / newScale):.2f}; {((event.y - Oy) / newScale):.2f}).")
     drawCursor(event.x, event.y)
     
 def on_enter(event):
