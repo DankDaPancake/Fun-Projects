@@ -307,6 +307,7 @@ def on_scale_changes(*args):
     canvas.delete("grid", "graph", "map", "path", "start_point", "end_point", "label")
     removeStartEnd(Graph)
     drawGrid()
+    
     drawLines(Map, "black", newScale / 10, "map")
 
 def on_tick():
