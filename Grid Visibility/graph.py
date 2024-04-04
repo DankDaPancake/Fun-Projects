@@ -69,8 +69,11 @@ def findPath(Graph):
             if Dist[v] > Dist[u] + Graph[u][v]:
                 Dist[v] = Dist[u] + Graph[u][v]
                 Par[v] = u
+                if v == -1: 
+                    pq.clear()
+                    break
                 if v != -1: heapq.heappush(pq, (Dist[v], v))
-    
+                
     path = []
     v = -1
     dist = 0

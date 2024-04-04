@@ -185,6 +185,8 @@ def duplicateBase(k):
         Graph[u-1][v] = Graph[v][u-1] = euclideanDistance(Map[u-1], Map[v])
         Graph[v][v+1] = Graph[v+1][v] = euclideanDistance(Map[v], Map[v+1])
     
+    for [u, v] in Map:
+        print(u // GRID_SIZE, v // GRID_SIZE)
     drawLines(Map, color = "black", width = GRID_SIZE / 10, tags = "map")
     status_log.set(f"Map generated in {(time.time() - start_time):.5f} s.")
 
@@ -208,21 +210,23 @@ def drawPath():
     global Path
     start_time = time.time()
     Path, Distance = findPath(Graph)
-    status_log.set(f"Found shortest path found in {((time.time() - start_time) * 1000):.5f} ms. Distance: {(Distance / GRID_SIZE):.2f}")
     drawGraph("path")
+    time.sleep(0.01)
+    duration = time.time() - start_time
+    status_log.set(f"Found shortest path found in {duration:.10f}s. Distance: {(Distance / newScale):.2f}")
     
 def drawGraph(tags = "graph"):
     offset = newScale / GRID_SIZE
     canvas.delete(tags)
     if tags == "path":
-        global Path, startCoord, endCoord
+        global Path, startCoord, endCoord, offsetX, offsetY
         x1, y1 = (), ()
         for u in Path:
             if u == -2: x2, y2 = startCoord
             elif u == -1: x2, y2 = endCoord
             else: x2, y2 = Map[u]
             if x1: 
-                canvas.create_line(x1 * offset, y1 * offset, x2 * offset, y2 * offset, fill = "#2563eb", width = newScale / PADDING, tags = "path")
+                canvas.create_line(x1 * offset + offsetX, y1 * offset + offsetY, x2 * offset + offsetX, y2 * offset + offsetY, fill = "#2563eb", width = newScale / PADDING, tags = "path")
             x1, y1 = x2, y2
             
     elif tags == "graph":
@@ -232,15 +236,15 @@ def drawGraph(tags = "graph"):
         for u in Graph:
             for v in Graph[u]:
                 if v < u: continue
-                canvas.create_line(Map[u][0] * offset, Map[u][1] * offset, Map[v][0] * offset, Map[v][1] * offset, fill = "grey", width = newScale / 20, tags = "graph")
+                canvas.create_line(Map[u][0] * offset + offsetX, Map[u][1] * offset + offsetY, Map[v][0] * offset + offsetX, Map[v][1] * offset + offsetY, fill = "grey", width = newScale / 20, tags = "graph")
 
 def drawGrid(offsetX = 0, offsetY = 0):
     MAP_WIDTH = CAV_WIDTH // newScale
     MAP_HEIGHT = CAV_HEIGHT // newScale
-    for i in range(MAP_WIDTH):
-        canvas.create_line(i * newScale + offsetX, offsetY, i * newScale + offsetX, CAV_HEIGHT + offsetY, fill = GRID_COLOR, tags = "grid")   
-    for i in range(MAP_HEIGHT):
-        canvas.create_line(offsetX, i * newScale + offsetY, CAV_WIDTH + offsetX, i * newScale + offsetY, fill = GRID_COLOR, tags = "grid") 
+    for i in range(MAP_WIDTH + 50 // newScale):
+        canvas.create_line(i * newScale + offsetX, -100 * newScale + offsetY, i * newScale + offsetX, CAV_HEIGHT + offsetY, fill = GRID_COLOR, tags = "grid")   
+    for i in range(MAP_HEIGHT + 50 // newScale): 
+        canvas.create_line(-100 * newScale + offsetX, i * newScale + offsetY, CAV_WIDTH + offsetX, i * newScale + offsetY, fill = GRID_COLOR, tags = "grid") 
 
 def drawLines(verts, color, width, tags):
     #canvas.create_polygon(Map[:-1], fill = "#ddeeff", tags = "map")
@@ -255,6 +259,7 @@ def drawLines(verts, color, width, tags):
         
 def drawPoint(vertice, tags, offset):
     x, y = vertice
+    global offsetX, offsetY
     if tags == "map":
         global counter 
         counter += 1
@@ -264,11 +269,11 @@ def drawPoint(vertice, tags, offset):
     if tags == "start_point": 
         canvas.delete("start_point")
         canvas.delete("end_point")
-        canvas.create_oval((x-3) * offset, (y-3) * offset, (x+3) * offset, (y+3) * offset, fill = START_COLOR, outline = "", tags = tags)
+        canvas.create_oval((x-3) * offset + offsetX, (y-3) * offset + offsetY, (x+3) * offset + offsetX, (y+3) * offset + offsetY, fill = START_COLOR, outline = "", tags = tags)
         
     if tags == "end_point": 
         canvas.delete("end_point")
-        canvas.create_oval((x-3) * offset, (y-3) * offset, (x+3) * offset, (y+3) * offset, fill = END_COLOR, outline = "", tags = tags)
+        canvas.create_oval((x-3) * offset + offsetX, (y-3) * offset + offsetY, (x+3) * offset + offsetX, (y+3) * offset + offsetY, fill = END_COLOR, outline = "", tags = tags)
 
 def drawCursor(x, y):
     canvas.delete("cursor_preview")
@@ -300,14 +305,16 @@ def on_scale_changes(*args):
     
     if k == 0: k = GRID_SIZE
     
-    global newScale, counter, Ox, Oy
+    global newScale, counter, Ox, Oy, offsetX, offsetY
+    offsetX, offsetY = 0, 0
     Ox, Oy = 0, 0
     newScale = k
     counter = 0
+    drawGrid()
     canvas.delete("grid", "graph", "map", "path", "start_point", "end_point", "label")
     removeStartEnd(Graph)
-    drawGrid()
-    
+    if Map[-1] == endCoord:
+        del Map[-2:]
     drawLines(Map, "black", newScale / 10, "map")
 
 def on_tick():
@@ -330,28 +337,29 @@ def on_drag(event):
         offsetY += dy
         canvas.delete("grid")
         drawGrid(offsetX % newScale, offsetY % newScale)
-        # print(offset_x, offset_y)
+        #print(offset_x, offset_y)
         print(dx, dy)
         canvas.move("all", dx, dy)
         Ox, Oy = event.x, event.y
                     
 def on_left_click(event):
-    global startCoord, endCoord, editStart, editEnd
+    global startCoord, endCoord, editStart, editEnd, offsetX, offsetY
     
     offset = newScale / GRID_SIZE
     if len(Map) > 2:                            
         x, y = event.x / offset, event.y / offset
-        if inPolygon(Map, (x, y), (x, y)):
+        if inPolygon(Map, (x - offsetX, y - offsetY), (x - offsetX, y - offsetY)):
             if editStart: 
-                startCoord = x, y
+                
+                startCoord = x - offsetX, y - offsetY
                 drawPoint(startCoord, "start_point", offset)
-                startpoint_log.set(f"Start point: ({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f}).")
+                startpoint_log.set(f"Start point: ({((event.x - offsetX)/ newScale):.2f}; {((event.y - offsetY)/ newScale):.2f}).")
                 editStart = False
                 if not endCoord: editEnd = True
             elif editEnd:
-                endCoord = x, y
+                endCoord = x - offsetX, y - offsetY
                 drawPoint(endCoord, "end_point", offset)
-                endpoint_log.set(f"End point: ({(x / GRID_SIZE):.2f}; {(y / GRID_SIZE):.2f}).")
+                endpoint_log.set(f"End point: ({((event.x - offsetX)/ newScale):.2f}; {((event.y - offsetY)/ newScale):.2f}).")
                 editEnd = False
                 if not startCoord: editStart = True
         else:
@@ -364,9 +372,9 @@ def on_right_click(event):
     isDragging = True
     
 def on_cursor_move(event):
-    global inCanvas
+    global inCanvas, offsetX, offsetY, newScale
     if not inCanvas: return
-    cursor_log.set(f"Cursor: ({((event.x - Ox) / newScale):.2f}; {((event.y - Oy) / newScale):.2f}).")
+    cursor_log.set(f"Cursor: ({((event.x - offsetX)/ newScale):.2f}; {((event.y - offsetY)/ newScale):.2f}).")
     drawCursor(event.x, event.y)
     
 def on_enter(event):
