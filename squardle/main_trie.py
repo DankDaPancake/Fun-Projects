@@ -49,7 +49,7 @@ def addString(st, id):
         #(could contain valid words with the prefix constructed from the vertices traversing until node u)
     #Or if there isn't then skip the turn 
         #(no valid words can be created with the prefix constructed from the vertices traversing until node u)
-#Acceptable performance no longer limited at length-10 words
+#Acceptable performance no longer limited at 10-letter words
 def TrieSearch(s):
     myQueue = queue.Queue()
     c = ord(inString[s]) - 97
@@ -98,7 +98,7 @@ def main():
     for wordsize in range(4, 16):
         if (len(final[wordsize]) > 0): 
             final[wordsize] = sorted(final[wordsize])
-            print('Words of size', wordsize,':')
+            print(str(wordsize) + '-letter words:')
             counter = 0
             for item in final[wordsize]:
                 if counter>0 and counter % (10-wordsize) == 0: print()
